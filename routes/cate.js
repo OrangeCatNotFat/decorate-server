@@ -35,7 +35,7 @@ router.post("/upload", multipartyMiddleWare, (req, res) => {
     })
 })
 
-// 查询所有信息：http://localhost:8089/cate/all
+// 查询所有类别：http://localhost:8089/cate/all
 router.get("/all", (req, res) => {
     cateModel.findAll({
         raw: true
