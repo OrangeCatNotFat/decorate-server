@@ -10,21 +10,14 @@ const Format = require("../js/Format");
 // 登录：http://localhost:8089/admins/login
 router.post("/login", (req, res) => {
     let user = req.body.user; // 获取对象
-    let username = user.username;
-    let password = user.password;
-    //创建MD5对象
-    let md5 = crypto.createHash("md5");
-    // 对密码进行加密成16进制字符串
-    let newPwd = md5.update(password).digest("hex");
     //查询
     adminModel.findAll({
         where: {
-            username: username,
+            username: user.username
         },
-    }).then(data => { // data是一个数组，数组中是对象形式的查到的数据
+    }).then(data => {
         if (data.length !== 0) { // 表示查询到了数据：用户名存在
-            // console.log(data[0].role); // 2
-            if (data[0].password === newPwd) { // 密码相同
+            if (data[0].password === user.password) { // 密码相同
                 // 合法用户，生成token
                 let newToken = jwt.sign({...data[0]}, "zhuangxiu", {
                     expiresIn: 1440 // token的过期时间
@@ -32,7 +25,6 @@ router.post("/login", (req, res) => {
                 data[0].update({
                     last_login_at: new Date()
                 }).then(result => {
-                    // console.log(result);
                     res.json({
                         status: 201,
                         msg: "更新成功"
@@ -45,7 +37,15 @@ router.post("/login", (req, res) => {
                     status: 200,
                     msg: "登录成功",
                     token: newToken,
-                    role: data[0].role
+                    role: data[0].role, // 待删除
+                    data: {
+                        username: data[0].username,
+                        name: data[0].name,
+                        role: data[0].role,
+                        last_login_at: data[0].last_login_at.Format("yyyy.MM.dd hh:mm:ss"),
+                        created_at: data[0].created_at.Format("yyyy.MM.dd hh:mm:ss"),
+                        updated_at: data[0].updated_at.Format("yyyy.MM.dd hh:mm:ss")
+                    }
                 })
             } else { // 用户名存在,但密码错误
                 res.json({
@@ -61,67 +61,6 @@ router.post("/login", (req, res) => {
         }
     }).catch((err) => {
         console.log(err);
-    })
-})
-
-// 查询个人信息：http://localhost:8089/admins/one
-router.get("/one", (req, res) => {
-    let username = req.query.username;
-    adminModel.findOne({
-        where: {
-            username: username
-        }
-    }).then(result => {
-        if (result !== null) {
-            res.json({
-                status: 200,
-                msg: "查找成功",
-                data: {
-                    username: result.username,
-                    name: result.username,
-                    role: result.role,
-                    last_login_at: result.last_login_at.Format("yyyy.MM.dd hh:mm:ss"),
-                    created_at: result.created_at.Format("yyyy.MM.dd hh:mm:ss"),
-                    updated_at: result.updated_at.Format("yyyy.MM.dd hh:mm:ss")
-                }
-            })
-        } else {
-            res.json({
-                status: 404,
-                msg: "数据库无此记录"
-            })
-        }
-    }).catch(err => {
-        console.log(err);
-    })
-})
-
-// 注册：http://localhost:8089/admins/register
-router.post("/register", (req, res) => {
-    let user = req.body.user; // 从前端接收到对象
-    let password = user.password; // 将密码解析出来
-    let md5 = crypto.createHash("md5"); // 创建md5对象
-    let newPwd = md5.update(password).digest("hex"); // 新密码
-    adminModel.create({
-        id: null,
-        username: user.username,
-        password: newPwd,
-        name: user.name,
-        role: user.role,
-        last_login_at: new Date(),
-        created_at: new Date(),
-        updated_at: new Date()
-    }).then(result => {
-        res.json({
-            status: 201,
-            msg: "注册成功"
-        })
-    }).catch(err => {
-        console.log(err);
-        res.json({
-            status: 422,
-            msg: "注册失败"
-        })
     })
 })
 
@@ -159,24 +98,21 @@ router.post("/test", (req, res) => {
 router.post("/updatePwd", (req, res) => {
     let user = req.body.user;
     let password = req.body.password;
-    // console.log(user, password); // { username: '张三', name: '张三' } 1
-    let md5 = crypto.createHash("md5");
-    let newPwd = md5.update(password).digest("hex");
+    // let md5 = crypto.createHash("md5");
+    // let newPwd = md5.update(password).digest("hex");
     adminModel.findOne({
         where: {
             username: user.username,
             name: user.name
         }
     }).then(person => {
-        // console.log(person) // 一长串
         person.update({
-            password: newPwd,
+            password: password,
             updated_at: new Date()
         }).then(result => {
             res.json({
                 status: 201,
-                msg: "修改密码成功",
-                data: result
+                msg: "修改密码成功"
             })
         }).catch(err => {
             console.log(err);
@@ -194,23 +130,93 @@ router.post("/updatePwd", (req, res) => {
     })
 })
 
+// 注册：http://localhost:8089/admins/register
+router.post("/register", (req, res) => {
+    let user = req.body.user; // 从前端接收到对象
+    // let password = user.password; // 将密码解析出来
+    // let md5 = crypto.createHash("md5"); // 创建md5对象
+    // let newPwd = md5.update(password).digest("hex"); // 新密码
+    adminModel.findOne({
+        where: {
+            username: user.username
+        }
+    }).then(person => {
+        if (person !== null) {
+            res.json({
+                status: 422,
+                msg: "改账户已存在"
+            })
+        } else {
+            adminModel.create({
+                id: null,
+                username: user.username,
+                password: user.password,
+                name: user.name,
+                role: user.role,
+                last_login_at: new Date(),
+                created_at: new Date(),
+                updated_at: new Date()
+            }).then(result => {
+                res.json({
+                    status: 201,
+                    msg: "注册成功"
+                })
+            }).catch(err => {
+                console.log(err);
+                res.json({
+                    status: 422,
+                    msg: "注册失败"
+                })
+            })
+        }
+    })
+})
+
+// 查询个人信息：http://localhost:8089/admins/one
+router.get("/one", (req, res) => {
+    let username = req.query.username;
+    adminModel.findOne({
+        where: {
+            username: username
+        }
+    }).then(result => {
+        if (result !== null) {
+            res.json({
+                status: 200,
+                msg: "查找成功",
+                data: {
+                    username: result.username,
+                    name: result.username,
+                    role: result.role,
+                    last_login_at: result.last_login_at.Format("yyyy.MM.dd hh:mm:ss"),
+                    created_at: result.created_at.Format("yyyy.MM.dd hh:mm:ss"),
+                    updated_at: result.updated_at.Format("yyyy.MM.dd hh:mm:ss")
+                }
+            })
+        } else {
+            res.json({
+                status: 404,
+                msg: "数据库无此记录"
+            })
+        }
+    }).catch(err => {
+        console.log(err);
+    })
+})
+
 // 修改密码：http://localhost:8089/admins/modifypwd
 router.post("/modifypwd", (req, res) => {
     let username = req.body.username; // 获取用户名
     let pwd = req.body.pwd; // 获取原密码+新密码
-    let md51 = crypto.createHash("md5");
-    let password = md51.update(pwd.password).digest("hex"); // 原密码
-    let md52 = crypto.createHash("md5");
-    let newPwd = md52.update(pwd.newPwd).digest("hex"); // 新密码转换
     adminModel.findOne({
         where: {
             username: username,
-            password: password
+            password: pwd.password
         }
     }).then(person => { // 查找出来的用户
         if (person !== null) {
             person.update({
-                password: newPwd,
+                password: pwd.newPwd,
                 updated_at: new Date()
             }).then(result => {
                 res.json({
@@ -234,34 +240,55 @@ router.post("/modifyname", (req, res) => {
     let username = req.body.username;
     let name = req.body.name;
     let newName = req.body.newName;
-    if (newName.username == undefined && newName.name == undefined) {
+    if (newName.username == undefined && newName.name == undefined) { // 如果传回来两个空值
         res.json({
             status: 400,
-            msg: "请输入要修改的用户名或真实姓名"
+            msg: "请输入要修改的电话号码或真实姓名"
         })
     } else if (newName.username && (newName.name == undefined || newName.name == "")) {
+        // 只修改电话号码
         adminModel.findOne({
             where: {
-                username: username,
-                name: name
+                username: newName.username
             }
-        }).then(person => {
-            person.update({
-                username: newName.username,
-                updated_at: new Date()
-            }).then(result => {
-                res.json({
-                    status: 201,
-                    msg: "修改用户名成功",
-                    data: result
-                })
-            }).catch(err => {
+        }).then(person => { // 查询新输入的电话号码有没有重复
+            if (person !== null) { // 如果查到了这个电话号码
                 res.json({
                     status: 422,
-                    msg: "修改失败"
+                    msg: "该电话号码已经存在了"
                 })
-                console.log(err);
-            })
+            } else { // 没查到，可以更改
+                adminModel.findOne({
+                    where: {
+                        username: username,
+                        name: name
+                    }
+                }).then(result => { // result查询出来的信息
+                    result.update({
+                        username: newName.username,
+                        updated_at: new Date()
+                    }).then(info => {
+                        res.json({
+                            status: 201,
+                            msg: "修改电话号码成功",
+                            data: {
+                                username: info.username,
+                                name: info.name,
+                                role: info.role,
+                                last_login_at: info.last_login_at.Format("yyyy.MM.dd hh:mm:ss"),
+                                created_at: info.created_at.Format("yyyy.MM.dd hh:mm:ss"),
+                                updated_at: info.updated_at.Format("yyyy.MM.dd hh:mm:ss")
+                            }
+                        })
+                    }).catch(err => {
+                        res.json({
+                            status: 422,
+                            msg: "修改失败"
+                        })
+                        console.log(err);
+                    })
+                })
+            }
         }).catch(err => {
             res.json({
                 status: 422,
@@ -270,6 +297,7 @@ router.post("/modifyname", (req, res) => {
             console.log(err);
         })
     } else if ((newName.username == undefined || newName.username == "") && newName.name) {
+        // 只修改真实姓名
         adminModel.findOne({
             where: {
                 username: username,
@@ -283,7 +311,14 @@ router.post("/modifyname", (req, res) => {
                 res.json({
                     status: 201,
                     msg: "修改真实姓名成功",
-                    data: result
+                    data: {
+                        username: result.username,
+                        name: result.name,
+                        role: result.role,
+                        last_login_at: result.last_login_at.Format("yyyy.MM.dd hh:mm:ss"),
+                        created_at: result.created_at.Format("yyyy.MM.dd hh:mm:ss"),
+                        updated_at: result.updated_at.Format("yyyy.MM.dd hh:mm:ss")
+                    }
                 })
             }).catch(err => {
                 res.json({
@@ -300,29 +335,50 @@ router.post("/modifyname", (req, res) => {
             console.log(err);
         })
     } else { // 两个都改
+        // 只修改电话号码
         adminModel.findOne({
             where: {
-                username: username,
-                name: name
+                username: newName.username
             }
-        }).then(person => {
-            person.update({
-                username: newName.username,
-                name: newName.name,
-                updated_at: new Date()
-            }).then(result => {
-                res.json({
-                    status: 201,
-                    msg: "修改用户名成功",
-                    data: result
-                })
-            }).catch(err => {
+        }).then(person => { // 查询新输入的电话号码有没有重复
+            if (person !== null) { // 如果查到了这个电话号码
                 res.json({
                     status: 422,
-                    msg: "修改失败"
+                    msg: "该电话号码已经存在了"
                 })
-                console.log(err);
-            })
+            } else { // 没查到，可以更改
+                adminModel.findOne({
+                    where: {
+                        username: username,
+                        name: name
+                    }
+                }).then(result => { // result查询出来的信息
+                    result.update({
+                        username: newName.username,
+                        name: newName.name,
+                        updated_at: new Date()
+                    }).then(info => {
+                        res.json({
+                            status: 201,
+                            msg: "修改电话号码成功",
+                            data: {
+                                username: info.username,
+                                name: info.name,
+                                role: info.role,
+                                last_login_at: info.last_login_at.Format("yyyy.MM.dd hh:mm:ss"),
+                                created_at: info.created_at.Format("yyyy.MM.dd hh:mm:ss"),
+                                updated_at: info.updated_at.Format("yyyy.MM.dd hh:mm:ss")
+                            }
+                        })
+                    }).catch(err => {
+                        res.json({
+                            status: 422,
+                            msg: "修改失败"
+                        })
+                        console.log(err);
+                    })
+                })
+            }
         }).catch(err => {
             res.json({
                 status: 422,
@@ -390,7 +446,7 @@ router.post("/modifyInfo", (req, res) => {
 // 删除该用户：http://localhost:8089/admins/delete
 router.delete("/delete", (req, res) => {
     let id = req.body.id;
-    console.log(id)
+    // console.log(id)
     adminModel.destroy({
         where: {
             id: id
