@@ -36,7 +36,7 @@ router.post("/upload", multipartyMiddleWare, (req, res) => {
     })
 })
 
-// 查询所有信息：http://localhost:8089/case/all
+// 查询所有案例：http://localhost:8089/case/all
 router.get("/all", (req, res) => {
     caseModel.findAll({
         raw: true
@@ -46,10 +46,38 @@ router.get("/all", (req, res) => {
             msg: "查询成功",
             data: result.map(item => {
                 return {
+                    id: item.id, // 文章id
+                    name: item.name, // 文章名字
+                    img: item.img, // 文章封面
+                    desc: item.desc, // 文章简介
+                    created_at: item.created_at.Format("yyyy-MM-dd hh:mm:ss"),
+                    updated_at: item.updated_at.Format("yyyy-MM-dd hh:mm:ss")
+                }
+            })
+        })
+    }).catch(err => {
+        console.log(err);
+    })
+})
+
+// 查询某个案例：http://localhost:8089/case/one
+router.post("/one", (req, res) => {
+    let id = req.body.id;
+    caseModel.findAll({
+        where: {
+            id: id
+        }
+    }).then(result => {
+        res.json({
+            status: 200,
+            msg: "查询成功",
+            data: result.map(item => {
+                return {
                     id: item.id,
                     name: item.name,
-                    img: item.img,
-                    desc: item.desc,
+                    content: item.content.toString(),
+                    img: item.img, // 文章封面
+                    desc: item.desc, // 文章简介
                     created_at: item.created_at.Format("yyyy-MM-dd hh:mm:ss"),
                     updated_at: item.updated_at.Format("yyyy-MM-dd hh:mm:ss")
                 }
@@ -117,7 +145,7 @@ router.delete("/batch", (req, res) => {
 })
 
 // 更新信息：http://localhost:8089/case/modify
-router.put("/modify", (req, res) => {
+router.post("/modify", (req, res) => {
     let event = req.body.event; // 接收从前端打包的对象类型的数据
     caseModel.findOne({
         where: {
@@ -129,7 +157,7 @@ router.put("/modify", (req, res) => {
             img: event.img,
             desc: event.desc,
             content: event.content,
-            updated_at: event.updated_at
+            updated_at: new Date()
         }).then(result => {
             res.json({
                 status: 201,
@@ -174,34 +202,6 @@ router.post("/some", (req, res) => {
                 msg: "没有该案例信息"
             })
         }
-    }).catch(err => {
-        console.log(err);
-    })
-})
-
-// 查询某个案例：http://localhost:8089/case/one
-router.post("/one", (req, res) => {
-    let id = req.body.id;
-    caseModel.findAll({
-        where: {
-            id: id
-        }
-    }).then(result => {
-        res.json({
-            status: 200,
-            msg: "查询成功",
-            data: result.map(item => {
-                return {
-                    id: item.id,
-                    name: item.name,
-                    img: item.img,
-                    desc: item.desc,
-                    content: item.content.toString(),
-                    created_at: item.created_at.Format("yyyy-MM-dd hh:mm:ss"),
-                    updated_at: item.updated_at.Format("yyyy-MM-dd hh:mm:ss")
-                }
-            })
-        })
     }).catch(err => {
         console.log(err);
     })
